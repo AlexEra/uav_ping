@@ -9,6 +9,7 @@
 void choose_channel(uint8_t ch);
 void print_channels_values(void);
 bool check_channel_value(uint8_t ch);
+void warn_user(void);
 
 
 uint16_t rssi_values[8]; // array for keeping channels values
@@ -41,11 +42,24 @@ void loop() {
     analogRead(POTENT); // fake read
     threshold_sum += analogRead(POTENT);
     if (++avg_count >= 9) {
-        rssi_threshold = map(threshold_sum >> 3, 0, RSSI_MAX, 0, 100);
-        rssi_threshold = constrain(rssi_threshold, 0, 100);
+        rssi_threshold = threshold_sum >> 3;
+        if (rssi_threshold > 1024) rssi_threshold = 1023;
         avg_count = 0;
         threshold_sum = 0;
     }
+
+//     if (check_channel_value(choosed_channel)) {
+//         /*warn_user();*/
+// #ifdef USING_BEEPER
+//         analogWrite(BEEPER, 1);
+// #endif
+//         digitalWrite(LED, 1);
+//     } else {
+// #ifdef USING_BEEPER
+//         analogWrite(BEEPER, 0);
+// #endif
+//         digitalWrite(LED, 0);
+//     }
 
 #else
     char symb = Serial.read();
@@ -169,8 +183,28 @@ void print_channels_values(void) {
  */
 bool check_channel_value(uint8_t ch) {
     delay(SWITCH_DELAY);
-    rssi_values[ch] = map(analogRead(RSSI), 0, RSSI_MAX, 0, 100);
-    rssi_values[ch] = constrain(rssi_values[ch], 0, 100);
+    rssi_values[ch] = analogRead(RSSI);
     if (rssi_values[ch] > rssi_threshold) return true;
     return false;
+}
+
+/**
+ * @brief Warning the user that was found corresponding signal
+ */
+void warn_user(void) {
+    uint8_t led_state = 1;
+
+    for (uint8_t i = 0; i < 7; i++) {
+        digitalWrite(LED, led_state);
+        if (led_state) {
+            led_state = 0;
+            analogWrite(BEEPER, BEEPER_DUTY);
+        } else {
+            led_state = 1;
+            analogWrite(BEEPER, 0);
+        }
+        delay(200); 
+    }
+    analogWrite(BEEPER, 0);
+    digitalWrite(LED, 0);
 }
